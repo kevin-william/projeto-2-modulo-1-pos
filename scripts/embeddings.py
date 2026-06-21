@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Embedding e busca vetorial para o pipeline RAG.
 
 Gera embeddings dos chunks de bulas usando SentenceTransformer,
@@ -10,8 +12,6 @@ import os
 from dotenv import load_dotenv
 load_dotenv()  # carrega HF_TOKEN do .env
 os.environ["HF_TOKEN"] = os.getenv("HF_TOKEN", "")
-
-from __future__ import annotations
 
 import hashlib
 import json
