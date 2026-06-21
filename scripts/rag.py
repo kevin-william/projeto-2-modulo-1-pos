@@ -8,6 +8,12 @@ pipeline end-to-end que retorna JSON estruturado.
 Fase 8 — Item: scripts/rag.py (RAGPipeline steps 2-4).
 """
 
+import os
+from dotenv import load_dotenv
+load_dotenv()
+os.environ["HF_TOKEN"] = os.getenv("HF_TOKEN", "")
+os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY", "")
+
 from __future__ import annotations
 
 import json
