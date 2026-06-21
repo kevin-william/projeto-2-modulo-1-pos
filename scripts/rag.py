@@ -3,7 +3,7 @@ from __future__ import annotations
 """Pipeline RAG para Consulta de Interacoes Medicamentosas.
 
 Combina NER (extracao de medicamentos), busca vetorial (ChromaDB),
-classificador (BioBERTpt fine-tuned) e LLM (OpenAI/GPT4All) em um
+classificador (BioBERTpt fine-tuned) e LLM (DeepSeek/GPT4All) em um
 pipeline end-to-end que retorna JSON estruturado.
 
 Fase 8 — Item: scripts/rag.py (RAGPipeline steps 2-4).
@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 load_dotenv()
 os.environ["HF_TOKEN"] = os.getenv("HF_TOKEN", "")
 os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_API_KEY", "")
+os.environ["DEEPSEEK_API_KEY"] = os.getenv("DEEPSEEK_API_KEY", "")
 
 import json
 import logging
