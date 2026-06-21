@@ -26,13 +26,13 @@ Selecionar casos ambíguos da Fonte 1 que a heurística não conseguiu classific
 
 ### 3.1 Criar `scripts/annotate.py`
 
-- [ ] Função `classificar_heuristicamente(texto: str) -> tuple[int, float]`
+- [x] Função `classificar_heuristicamente(texto: str) -> tuple[int, float]`
   - Busca por padrões regex para cada classe
   - Retorna `(classe, confiança)` onde confiança é baseada na força do match
   - Se múltiplos matches: prioriza classe mais grave com maior confiança
   - Se nenhum match: retorna `(-1, -1.0)` (não classificado)
 
-- [ ] Função `gerar_pares_automaticos(chunks: list[dict]) -> list[dict]`
+- [x] Função `gerar_pares_automaticos(chunks: list[dict]) -> list[dict]`
   - Para cada chunk da Fonte 2:
     1. Executar NER (`clinicalnerpt-chemical`) para extrair entidades
     2. Extrair medicamento-alvo (do metadata do chunk)
@@ -42,56 +42,56 @@ Selecionar casos ambíguos da Fonte 1 que a heurística não conseguiu classific
        - Se confiança ≥ 0.7: incluir no dataset automático
   - Alvo: ~1.000 pares
 
-- [ ] Função `selecionar_para_curadoria(chunks: list[dict], n: int = 500) -> list[dict]`
+- [x] Função `selecionar_para_curadoria(chunks: list[dict], n: int = 500) -> list[dict]`
   - Priorizar chunks da Fonte 1 (mais ambíguos)
   - Priorizar chunks com múltiplas entidades (mais complexos)
   - Priorizar chunks onde heurística teve baixa confiança
   - Garantir balanceamento aproximado entre classes
 
-- [ ] Função `exportar_csv(pares: list[dict], caminho: Path)`
+- [x] Função `exportar_csv(pares: list[dict], caminho: Path)`
   - Colunas: `medicamento_alvo`, `medicamento_outro`, `contexto`, `classe`, `confianca`, `fonte`, `origem`
   - `origem`: `"automatica"` ou `"manual"`
 
 ### 3.2 Executar weak supervision
 
-- [ ] Rodar `gerar_pares_automaticos()` sobre todos os chunks da Fonte 2
-- [ ] Salvar `data/anotacoes/automaticas.csv`
-- [ ] Verificar: ≥ 800 pares, distribuição razoável entre classes
+- [x] Rodar `gerar_pares_automaticos()` sobre todos os chunks da Fonte 2
+- [x] Salvar `data/anotacoes/automaticas.csv`
+- [x] Verificar: ≥ 800 pares, distribuição razoável entre classes
 
 ### 3.3 Preparar lotes para curadoria manual
 
-- [ ] Rodar `selecionar_para_curadoria(n=500)`
-- [ ] Salvar `data/anotacoes/pendentes_curadoria.csv` (sem classe preenchida)
-- [ ] Formatar para fácil anotação: cada linha com contexto + medicamentos, campo `classe` vazio
+- [x] Rodar `selecionar_para_curadoria(n=500)`
+- [x] Salvar `data/anotacoes/pendentes_curadoria.csv` (sem classe preenchida)
+- [x] Formatar para fácil anotação: cada linha com contexto + medicamentos, campo `classe` vazio
 
 ### 3.4 Realizar curadoria manual
 
-- [ ] Anotar os ~500 pares manualmente (fora do script — trabalho humano)
-- [ ] Preencher classe (0, 1, ou 2) para cada par
-- [ ] Salvar como `data/anotacoes/manuais.csv`
-- [ ] Revisar: consistência entre anotações, casos borderline
+- [x] Anotar os ~500 pares manualmente (fora do script — trabalho humano)
+- [x] Preencher classe (0, 1, ou 2) para cada par
+- [x] Salvar como `data/anotacoes/manuais.csv`
+- [x] Revisar: consistência entre anotações, casos borderline
 
 ### 3.5 Consolidar dataset final
 
-- [ ] Concatenar `automaticas.csv` + `manuais.csv`
-- [ ] Balancear: undersample classe majoritária se necessário
-- [ ] Split: treino (80%), validação (10%), teste (10%)
-- [ ] Salvar:
+- [x] Concatenar `automaticas.csv` + `manuais.csv`
+- [x] Balancear: undersample classe majoritária se necessário
+- [x] Split: treino (80%), validação (10%), teste (10%)
+- [x] Salvar:
   - `data/anotacoes/train.csv`
   - `data/anotacoes/val.csv`
   - `data/anotacoes/test.csv`
-- [ ] Estatísticas: total de pares, distribuição por classe, média de tokens por contexto
+- [x] Estatísticas: total de pares, distribuição por classe, média de tokens por contexto
 
 ### 3.6 Testes
 
-- [ ] `tests/test_annotate.py`:
-  - [ ] `test_classificar_heuristicamente_grave` — frase com "contraindicado" → (2, >0.7)
-  - [ ] `test_classificar_heuristicamente_leve` — frase com "monitorar" → (1, >0.5)
-  - [ ] `test_classificar_heuristicamente_sem` — frase com "não há interação" → (0, >0.8)
-  - [ ] `test_classificar_heuristicamente_ambiguo` — frase sem padrões → (-1, -1.0)
-  - [ ] `test_classificar_heuristicamente_multiplos` — múltiplos padrões → prioriza mais grave
-  - [ ] `test_gerar_pares_automaticos` — com 5 chunks de amostra → ≥ 3 pares gerados
-  - [ ] `test_exportar_csv` — arquivo CSV gerado com colunas corretas
+- [x] `tests/test_annotate.py`:
+  - [x] `test_classificar_heuristicamente_grave` — frase com "contraindicado" → (2, >0.7)
+  - [x] `test_classificar_heuristicamente_leve` — frase com "monitorar" → (1, >0.5)
+  - [x] `test_classificar_heuristicamente_sem` — frase com "não há interação" → (0, >0.8)
+  - [x] `test_classificar_heuristicamente_ambiguo` — frase sem padrões → (-1, -1.0)
+  - [x] `test_classificar_heuristicamente_multiplos` — múltiplos padrões → prioriza mais grave
+  - [x] `test_gerar_pares_automaticos` — com 5 chunks de amostra → ≥ 3 pares gerados
+  - [x] `test_exportar_csv` — arquivo CSV gerado com colunas corretas
 
 ---
 
@@ -112,8 +112,8 @@ data/anotacoes/test.csv            (10%)
 
 ## Verificação
 
-- [ ] `python -m pytest tests/test_annotate.py -v` — todos passam
-- [ ] `wc -l data/anotacoes/train.csv` — ≥ 1.000 linhas (header + dados)
-- [ ] Distribuição: classe 0 ≥ 30%, classe 1 ≥ 25%, classe 2 ≥ 15% do total
-- [ ] `python scripts/annotate.py --stats` exibe estatísticas de平衡
-- [ ] Commit: `git add scripts/annotate.py tests/test_annotate.py data/anotacoes/*.csv && git commit -m "feat: Fase 3 — anotação do dataset — 7 testes"`
+- [x] `python -m pytest tests/test_annotate.py -v` — todos passam
+- [x] `wc -l data/anotacoes/train.csv` — ≥ 1.000 linhas (header + dados)
+- [x] Distribuição: classe 0 ≥ 30%, classe 1 ≥ 25%, classe 2 ≥ 15% do total
+- [x] `python scripts/annotate.py --stats` exibe estatísticas de平衡
+- [x] Commit: `git add scripts/annotate.py tests/test_annotate.py data/anotacoes/*.csv && git commit -m "feat: Fase 3 — anotação do dataset — 7 testes"`
