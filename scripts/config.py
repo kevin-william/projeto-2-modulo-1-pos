@@ -35,7 +35,7 @@ CLASSES = {
 }
 
 # Pesos para compensar desbalanceamento (classe 2 = 3x mais penalidade)
-CLASS_WEIGHTS = [1.0, 2.0, 3.0]
+CLASS_WEIGHTS = [1.0, 1.0, 1.0]  # balanced dataset — equal weights
 
 # ─── Parâmetros de Busca / RAG ────────────────────────────────────────
 TOP_K_CHUNKS = 5
@@ -47,12 +47,12 @@ BM25_ALPHA = 0.3  # peso cosseno vs BM25 na busca híbrida
 BATCH_SIZE = 16
 GRADIENT_ACCUMULATION_STEPS = 4
 LEARNING_RATE = 2e-5
-EPOCHS = 3
+EPOCHS = 5
 WARMUP_RATIO = 0.1
 WEIGHT_DECAY = 0.01
 DROPOUT = 0.3
 MAX_SEQ_LENGTH = 256
-EARLY_STOPPING_PATIENCE = 2
+EARLY_STOPPING_PATIENCE = 3
 
 # ─── Regex de Parseamento ─────────────────────────────────────────────
 # Detecta se arquivo é Fonte 1 (começa com dígito) ou Fonte 2 (começa com letra)
