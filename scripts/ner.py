@@ -8,6 +8,11 @@ em linguagem natural. Suporta aggregation de sub-tokens (B-ChemicalDrugs
 Fase 8 — Item: scripts/ner.py (RAGPipeline step 1).
 """
 
+import os
+from dotenv import load_dotenv
+load_dotenv()  # carrega HF_TOKEN do .env
+os.environ["HF_TOKEN"] = os.getenv("HF_TOKEN", "")
+
 from __future__ import annotations
 
 import re

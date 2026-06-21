@@ -6,6 +6,11 @@ indexa no ChromaDB e implementa busca hibrida (cosseno + BM25).
 Fase 6 — Notebook 03: Embeddings + ChromaDB.
 """
 
+import os
+from dotenv import load_dotenv
+load_dotenv()  # carrega HF_TOKEN do .env
+os.environ["HF_TOKEN"] = os.getenv("HF_TOKEN", "")
+
 from __future__ import annotations
 
 import hashlib

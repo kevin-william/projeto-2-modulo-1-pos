@@ -17,6 +17,11 @@ Uso:
     python scripts/train_classifier.py
 """
 
+import os
+from dotenv import load_dotenv
+load_dotenv()  # carrega HF_TOKEN do .env
+os.environ["HF_TOKEN"] = os.getenv("HF_TOKEN", "")
+
 import json
 import logging
 import os

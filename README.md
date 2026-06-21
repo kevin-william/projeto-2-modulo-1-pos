@@ -190,7 +190,15 @@ pip install torch==2.6.0 torchvision torchaudio
 cp .env.example .env
 ```
 
-Edite o `.env` e preencha a `OPENAI_API_KEY` se quiser usar GPT-4o-mini (opcional — apenas para Notebooks 02, 04 e 05). Sem a chave, o sistema usa apenas o classificador fine-tuned e o GPT4All local.
+Edite o `.env` e preencha:
+
+| Variável | Obrigatório | Onde obter | Custo |
+|---|---|---|---|
+| `HF_TOKEN` | **Recomendado** | [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) | Gratuito |
+| `OPENAI_API_KEY` | Opcional | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) | Pay-per-use |
+
+- **`HF_TOKEN`**: autentica downloads do HuggingFace Hub e elimina o aviso de rate-limiting. Nível mínimo: "Read". **Sem esta chave** o sistema funciona mas pode sofrer throttling.
+- **`OPENAI_API_KEY`**: habilita GPT-4o-mini nos Notebooks 02, 04 e 05. **Sem esta chave** o sistema usa apenas o classificador fine-tuned e o GPT4All local (zero custo).
 
 ---
 
@@ -318,11 +326,19 @@ Todas as etapas funcionam em CPU. A única diferença é o tempo:
 
 ## Configuração de API (Opcional)
 
+### HuggingFace (HF_TOKEN) — Recomendado
+
+```bash
+# Gere um token em: https://huggingface.co/settings/tokens
+# Nível mínimo: "Read"
+echo "HF_TOKEN=hf_seu_token" >> .env
+```
+
 ### OpenAI (GPT-4o-mini)
 
 ```bash
-# Edite .env
-OPENAI_API_KEY=sk-...  # sua chave da OpenAI
+# Editando .env manualmente
+OPENAI_API_KEY=sk-proj-...   # sua chave da OpenAI
 ```
 
 ### GPT4All (local, gratuito)
@@ -336,12 +352,13 @@ Não requer chave. O modelo `Phi-3-mini-4k-instruct.gguf` (~2 GB) é baixado aut
 | Problema | Solução |
 |----------|---------|
 | `CUDA not available` | Reinstale PyTorch com CUDA: `pip install torch==2.6.0 --index-url https://download.pytorch.org/whl/cu124` |
-| `Out of memory` | Reduza `BATCH_SIZE` em `scripts/config.py` (padrão: 16 → reduzir para 8) |
-| `Modelo não encontrado` | Verifique conexão com internet (download do Hugging Face). Para离线, use `huggingface-cli download` |
-| `OPENAI_API_KEY not set` | Modo offline: células OpenAI pulam com aviso. O classificador fine-tuned continua funcionando |
-| `ConnectionError` no GPT4All | Verifique conexão ou use `fetch=False` para usar modelo já baixado |
-| `Dataset not found` no NER | Execute `python -c "from transformers import pipeline; pipeline('ner', model='pucpr/clinicalnerpt-chemical')"` para forçar o download |
-| Testes falham no NER (mock) | Os testes do NER usam mocks e não precisam de download. Se falharem, recarregue o módulo: `import importlib; importlib.reload` |
+| `Out of memory` | Reduza `BATCH_SIZE` em `scripts/config.py` (padrão: 16 → 8) |
+| `HF_TOKEN not set` / rate-limiting | Adicione `HF_TOKEN=hf_xxx` no `.env` — baixe em huggingface.co/settings/tokens |
+| `dotenv not found` | `pip install python-dotenv` |
+| `OPENAI_API_KEY not set` | Células OpenAI pulam com aviso — classificador fine-tuned e GPT4All local continuam funcionando |
+| `Modelo não encontrado` | Verifique conexão com internet; para offline: `huggingface-cli download` |
+| `ConnectionError` no GPT4All | Verifique rede ou use `fetch=False` se o modelo já estiver baixado |
+| Testes falham no NER (mock) | Os testes do NER usam mocks e não precisam de download de modelo |
 
 ---
 

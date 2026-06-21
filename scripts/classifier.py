@@ -15,6 +15,11 @@ Uso:
     # [{"classe": 1, ...}, {"classe": 0, ...}, ...]
 """
 
+import os
+from dotenv import load_dotenv
+load_dotenv()  # carrega HF_TOKEN do .env
+os.environ["HF_TOKEN"] = os.getenv("HF_TOKEN", "")
+
 import logging
 from typing import List, Optional
 
