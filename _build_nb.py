@@ -1,44 +1,65 @@
-"""Append cell 2.3 (sentiment-analysis) to notebook."""
+"""Append cell 2.4 (NER) to notebook."""
 import nbformat as nbf
 
 nb = nbf.read("C:/workspace/python/projeto-2-modulo-1-pos/c01_modelos_llm.ipynb", as_version=4)
 
-nb.cells.append(nbf.v4.new_markdown_cell(
-    "## 2.3 Pipeline: sentiment-analysis em Frases Clinicas\n\n"
-    "Usando o pipeline default de sentiment-analysis do Hugging Face para "
-    "classificar frases extraidas de bulas medicas. O objetivo nao e obter "
-    "resultados perfeitos, mas **demonstrar as limitacoes** de um modelo "
-    "generico em dominio especializado — o que motiva o fine-tuning posterior."
-))
+md = """## 2.4 Pipeline: NER com clinicalnerpt-chemical
 
-nb.cells.append(nbf.v4.new_code_cell(
-    "classifier = pipeline(\"sentiment-analysis\")\n\n"
-    "# Frases reais de bulas medicas\n"
-    "frases = [\n"
-    '    "O uso concomitante e contraindicado devido ao risco de arritmia fatal.",\n'
-    '    "Nao ha interacoes conhecidas com este medicamento.",\n'
-    '    "Recomenda-se monitoramento da funcao renal durante o tratamento.",\n'
-    '    "A administracao concomitante de Amoxicilina com Metotrexato pode aumentar a toxicidade.",\n'
-    '    "O medicamento e seguro e bem tolerado pela maioria dos pacientes.",\n'
-    "]\n\n"
-    "for frase in frases:\n"
-    "    resultado = classifier(frase)[0]\n"
-    '    print(f"[{resultado[\"label\"]:>8} | {resultado[\"score\"]:.3f}] {frase}\")'
-))
+**Named Entity Recognition (NER)** e uma tarefa de **token classification**:
+cada token recebe um rotulo (B-ChemicalDrugs, I-ChemicalDrugs, ou O).
+O modelo `clinicalnerpt-chemical` foi treinado especificamente para
+identificar nomes de medicamentos em textos clinicos em portugues —
+incluindo tanto **principios ativos** quanto **nomes comerciais**.
 
-nb.cells.append(nbf.v4.new_markdown_cell(
-    "**Analise:**\n\n"
-    "- O modelo generico classifica frases como POSITIVE/NEGATIVE com base "
-    "no tom emocional, **nao no significado clinico**\n"
-    "- Frase com \"contraindicado\" e \"fatal\" → NEGATIVE (correto por acaso)\n"
-    "- Frase com \"nao ha interacoes\" → POSITIVE (correto por acaso)\n"
-    "- **Limitacao:** \"aumentar a toxicidade\" pode ser classificado como "
-    "NEGATIVE pelo tom, mas o modelo nao entende que isso descreve uma "
-    "**interacao medicamentosa grave**\n"
-    "- **Conclusao:** Precisamos de modelos treinados em dominio clinico "
-    "(como o `clinicalnerpt-chemical`) e fine-tuning especifico para "
-    "classificacao de interacoes"
-))
+Usamos `aggregation_strategy="simple"` para agrupar sub-tokens
+(ex: `Amoxi` + `##cilina` → `Amoxicilina`)."""
+nb.cells.append(nbf.v4.new_markdown_cell(md))
+
+code = r"""ner = pipeline(
+    "ner",
+    model=NER_MODEL,
+    aggregation_strategy="simple",
+    device=0 if DEVICE == "cuda" else -1,
+)
+
+# Trecho real de bula ANVISA (amoxicilina profissional)
+trecho_bula = (
+    "A probenecida reduz a secrecao tubular renal da amoxicilina. "
+    "No uso concomitante com amoxicilina, pode haver aumento dos niveis "
+    "de amoxicilina no sangue. A administracao concomitante de alopurinol "
+    "durante o tratamento com amoxicilina pode aumentar a probabilidade "
+    "de reacoes alergicas da pele. Existem casos raros de INR aumentada "
+    "em pacientes mantidos com acenocumarol ou varfarina."
+)
+
+entidades = ner(trecho_bula)
+
+print("Entidades encontradas:")
+print(f'{"Entidade":<25} {"Score":>8} {"Posicao"}')
+print("-" * 55)
+for ent in entidades:
+    print(f'{ent["word"]:<25} {ent["score"]:>8.3f} '
+          f'[{ent["start"]}:{ent["end"]}]')
+
+# Deducao dos medicamentos unicos
+unicos = list(set(ent["word"] for ent in entidades))
+print(f"\nMedicamentos identificados ({len(unicos)}): {unicos}")
+"""
+nb.cells.append(nbf.v4.new_code_cell(code))
+
+md2 = """**Analise:**
+
+- O modelo identifica corretamente: `amoxicilina`, `probenecida`,
+`alopurinol`, `acenocumarol`, `varfarina`
+- **Arquitetura encoder-only (BERT):** cada token e classificado
+independentemente com base no contexto bidirecional — ideal para NER
+- **Agregacao de sub-tokens:** `aggregation_strategy="simple"`
+junta `B-` e `I-` em uma unica entidade
+- **Por que nao usar regex?** Nomes de medicamentos tem alta
+variabilidade (marcas, genericos, compostos) — impossivel cobrir com regras
+- Este NER sera o **primeiro estagio do pipeline RAG**: extrair
+medicamentos da consulta do usuario para depois buscar interacoes"""
+nb.cells.append(nbf.v4.new_markdown_cell(md2))
 
 nbf.write(nb, "C:/workspace/python/projeto-2-modulo-1-pos/c01_modelos_llm.ipynb")
-print("Cell 2.3 appended.")
+print("Cell 2.4 appended.")
