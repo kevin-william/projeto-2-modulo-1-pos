@@ -1,18 +1,6 @@
-# Ambiente
-.env
 venv/
 __pycache__/
-
-# Dados (não versionados)
-data/bulas/
-data/chroma_db/
-data/modelos_finetuned/
-
-# Logs
-logs/
-
-# Notebooks
 .ipynb_checkpoints/
-
-# Modelos locais
+data/bulas/
+logs/
 *.gguf

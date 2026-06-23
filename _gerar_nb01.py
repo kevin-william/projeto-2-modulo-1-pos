@@ -1,0 +1,415 @@
+"""
+Script para gerar c01_modelos_llm.ipynb com o conteudo correto.
+"""
+from __future__ import annotations
+
+import json
+import textwrap
+from pathlib import Path
+
+
+CELULAS = [
+
+    # 1 ── Cabeçalho Markdown ───────────────────────────────────────────────
+    {
+        "cell_type": "markdown",
+        "metadata": {},
+        "source": [
+            "# Caderno 01 — Modelos de Linguagem e Processamento de Linguagem Natural com HuggingFace\n",
+            "\n",
+            "**Objetivo:** Demonstrar o uso de modelos pre-treinados do ecossistema HuggingFace\n",
+            "aplicados ao dominio de bulas medicas brasileiras.\n",
+            "\n",
+            "**Rubrica 1:** Construir aplicacoes de Processamento de Linguagem Natural com\n",
+            "Modelos de Linguagem de Grande Escala e ecossistema HuggingFace (5 itens).\n",
+            "\n",
+            "### Fluxo deste caderno\n",
+            "1. **AutoModel + AutoTokenizer** — carregar modelo, tokenizar, inspecionar dimensoes\n",
+            "2. **Analise de sentimento** — pipeline em frases clinicas, demonstrar limitacoes\n",
+            "3. **Reconhecimento de entidades nomeadas** — extrair medicamentos de bulas reais\n",
+            "4. **Tabela comparativa** — encoder-only vs decoder-only vs encoder-decoder\n",
+            "5. **Conclusao** — quais tarefas importam para o detector de interacoes\n",
+        ]
+    },
+
+    # 2 ── Setup e Logging ─────────────────────────────────────────────────
+    {
+        "cell_type": "code",
+        "execution_count": None,
+        "metadata": {},
+        "outputs": [],
+        "source": [
+            "import os\n",
+            "import sys\n",
+            "import logging\n",
+            "from pathlib import Path\n",
+            "from datetime import datetime\n",
+            "\n",
+            "import torch\n",
+            "from transformers import pipeline, AutoModel, AutoTokenizer\n",
+            "\n",
+            "dispositivo = \"cuda\" if torch.cuda.is_available() else \"cpu\"\n",
+            "\n",
+            "modelo_reconhecimento_entidades = \"pucpr/clinicalnerpt-chemical\"\n",
+            "modelo_embeddings = \"neuralmind/bert-base-portuguese-cased\"\n",
+            "\n",
+            "diretorio_logs = Path(\"logs\")\n",
+            "diretorio_logs.mkdir(exist_ok=True)\n",
+            "\n",
+            "formato_log = logging.Formatter(\n",
+            "    fmt=\"%(asctime)s [%(levelname)s] %(message)s\",\n",
+            "    datefmt=\"%Y-%m-%d %H:%M:%S\"\n",
+            ")\n",
+            "\n",
+            "arquivo_log = diretorio_logs / \"caderno_01_modelos_linguagem.log\"\n",
+            "manipulador_arquivo = logging.FileHandler(arquivo_log, encoding=\"utf-8\")\n",
+            "manipulador_arquivo.setFormatter(formato_log)\n",
+            "\n",
+            "manipulador_console = logging.StreamHandler(sys.stdout)\n",
+            "manipulador_console.setFormatter(formato_log)\n",
+            "\n",
+            "registro = logging.getLogger(\"caderno_01\")\n",
+            "registro.setLevel(logging.INFO)\n",
+            "registro.addHandler(manipulador_arquivo)\n",
+            "registro.addHandler(manipulador_console)\n",
+            "\n",
+            "registro.info(\"=\" * 70)\n",
+            "registro.info(\"Caderno 01 — Modelos de Linguagem e Processamento de Linguagem Natural\")\n",
+            "registro.info(\"Inicio: %s\", datetime.now().isoformat())\n",
+            "registro.info(\"PyTorch: %s\", torch.__version__)\n",
+            "registro.info(\"CUDA disponivel: %s\", torch.cuda.is_available())\n",
+            "registro.info(\"Dispositivo: %s\", dispositivo)\n",
+            "\n",
+            "if torch.cuda.is_available():\n",
+            "    prop = torch.cuda.get_device_properties(0)\n",
+            "    registro.info(\"GPU: %s | VRAM: %.1f GB\",\n",
+            "                  torch.cuda.get_device_name(0), prop.total_memory / 1e9)\n",
+            "\n",
+            "print(f\"PyTorch: {torch.__version__}\")\n",
+            "print(f\"CUDA: {torch.cuda.is_available()}\")\n",
+            "print(f\"Dispositivo: {dispositivo}\")\n",
+            "if torch.cuda.is_available():\n",
+            "    print(f\"GPU: {torch.cuda.get_device_name(0)}\")\n",
+            "    print(f\"VRAM: {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB\")\n",
+            "print(f\"Logs: {arquivo_log.resolve()}\")\n",
+        ]
+    },
+
+    # 3 ── Explicacao AutoModel ───────────────────────────────────────────
+    {
+        "cell_type": "markdown",
+        "metadata": {},
+        "source": [
+            "## 2.1 Carregamento de Modelo com AutoModel e AutoTokenizer\n",
+            "\n",
+            "Seguindo o padrao demonstrado em aula pelo professor:\n",
+            "1. `AutoTokenizer.from_pretrained(identificador)` — carrega o tokenizador\n",
+            "2. `AutoModel.from_pretrained(identificador)` — carrega o corpo do modelo\n",
+            "   **sem cabecalho de tarefa**\n",
+            "3. `modelo(**entradas)` — propagacao direta, retorna `last_hidden_state`\n",
+            "\n",
+            "**Modelo:** `pucpr/clinicalnerpt-chemical` — BERT (apenas codificador)\n",
+            "treinado para reconhecimento de entidades em textos clinicos em portugues.\n",
+            "\n",
+            "### Por que apenas codificador (encoder-only)?\n",
+            "\n",
+            "- Atencao **bidirecional**: cada token enxerga toda a frase\n",
+            "- Ideal para tarefas de **compreensao**: classificacao, NER, embeddings\n",
+            "- Tokenizacao WordPiece: palavras raras quebradas em sub-tokens\n",
+            "  (exemplo: \"poderoso\" -> \"poder\", \"##oso\")\n",
+        ]
+    },
+
+    # 4 ── AutoModel na pratica ──────────────────────────────────────────
+    {
+        "cell_type": "code",
+        "execution_count": None,
+        "metadata": {},
+        "outputs": [],
+        "source": [
+            "identificador_modelo = modelo_reconhecimento_entidades\n",
+            "registro.info(\"Carregando tokenizador e modelo: %s\", identificador_modelo)\n",
+            "\n",
+            "tokenizador = AutoTokenizer.from_pretrained(identificador_modelo)\n",
+            "registro.info(\"Tokenizador: vocabulario com %d tokens\", tokenizador.vocab_size)\n",
+            "\n",
+            "modelo_codificador = AutoModel.from_pretrained(identificador_modelo).to(dispositivo)\n",
+            "registro.info(\"Modelo carregado em: %s\", dispositivo)\n",
+            "\n",
+            "frase_exemplo = \"O mecanismo de atencao e poderoso\"\n",
+            "entradas = tokenizador(frase_exemplo, return_tensors=\"pt\")\n",
+            "entradas = {k: v.to(dispositivo) for k, v in entradas.items()}\n",
+            "\n",
+            "with torch.no_grad():\n",
+            "    saidas = modelo_codificador(**entradas)\n",
+            "\n",
+            "dims = saidas.last_hidden_state.shape\n",
+            "print(f\"Dimensoes estado oculto: {dims}\")\n",
+            "print(f\"  Lote (batch):     {dims[0]}\")\n",
+            "print(f\"  Tokens:           {dims[1]} (inclui [CLS] e [SEP])\")\n",
+            "print(f\"  Dimensao oculta:  {dims[2]}\")\n",
+            "\n",
+            "tokens_gerados = tokenizador.convert_ids_to_tokens(entradas[\"input_ids\"][0])\n",
+            "print(f\"\\nTokens WordPiece: {tokens_gerados}\")\n",
+            "print(f\"Total: {len(tokens_gerados)} (limite BERT: 512)\")\n",
+            "\n",
+            "registro.info(\"Dimensoes: [batch=%d, tokens=%d, dim=%d]\",\n",
+            "              dims[0], dims[1], dims[2])\n",
+            "registro.info(\"Tokens: %s\", tokens_gerados)\n",
+        ]
+    },
+
+    # 5 ── Explicacao Analise de Sentimento ───────────────────────────────
+    {
+        "cell_type": "markdown",
+        "metadata": {},
+        "source": [
+            "## 2.2 Analise de Sentimento em Frases Clinicas\n",
+            "\n",
+            "Usamos o pipeline de analise de sentimento para classificar frases\n",
+            "extraidas de bulas medicas. O objetivo **nao e** obter resultados perfeitos,\n",
+            "mas **demonstrar as limitacoes** de um modelo generico (treinado em criticas\n",
+            "de filmes) quando aplicado a dominio especializado.\n",
+            "\n",
+            "### Por que isso importa para o projeto?\n",
+            "\n",
+            "Se usassemos analise de sentimento para classificar interacoes medicamentosas,\n",
+            "\"aumenta a toxicidade\" e \"recomenda-se monitoramento\" seriam ambos NEGATIVO —\n",
+            "mas o primeiro indica risco GRAVE e o segundo risco LEVE. A nuance se perde.\n",
+            "Isso **motiva** o uso de modelos especializados e ajuste fino.\n",
+        ]
+    },
+
+    # 6 ── Analise de sentimento na pratica ──────────────────────────────
+    {
+        "cell_type": "code",
+        "execution_count": None,
+        "metadata": {},
+        "outputs": [],
+        "source": [
+            "registro.info(\"Carregando pipeline de analise de sentimento...\")\n",
+            "\n",
+            "classificador_sentimento = pipeline(\"sentiment-analysis\")\n",
+            "\n",
+            "frases_clinicas = [\n",
+            "    \"O uso concomitante e contraindicado devido ao risco de arritmia fatal.\",\n",
+            "    \"Nao ha interacoes conhecidas com este medicamento.\",\n",
+            "    \"Recomenda-se monitoramento da funcao renal durante o tratamento.\",\n",
+            "    \"A administracao de Amoxicilina com Metotrexato pode aumentar a toxicidade.\",\n",
+            "    \"O medicamento e seguro e bem tolerado pela maioria dos pacientes.\",\n",
+            "]\n",
+            "\n",
+            "print(f\"{'Sentimento':>12} | {'Confianca':>9} | Frase\")\n",
+            "print(\"-\" * 75)\n",
+            "\n",
+            "for frase in frases_clinicas:\n",
+            "    resultado = classificador_sentimento(frase)[0]\n",
+            "    sentimento = resultado[\"label\"]\n",
+            "    confianca = resultado[\"score\"]\n",
+            "    print(f\"{sentimento:>12} | {confianca:>8.3f} | {frase[:55]}...\")\n",
+            "    registro.info(\"Sentimento: %s (conf=%.3f) | %s\",\n",
+            "                  sentimento, confianca, frase[:80])\n",
+            "\n",
+            "registro.info(\"Analise de sentimento: %d frases\", len(frases_clinicas))\n",
+        ]
+    },
+
+    # 7 ── Explicacao NER ─────────────────────────────────────────────────
+    {
+        "cell_type": "markdown",
+        "metadata": {},
+        "source": [
+            "## 2.3 Reconhecimento de Entidades Nomeadas com clinicalnerpt-chemical\n",
+            "\n",
+            "**NER** classifica cada token como pertencente a uma entidade ou nao.\n",
+            "\n",
+            "O modelo `pucpr/clinicalnerpt-chemical` identifica medicamentos em textos\n",
+            "clinicos em portugues, tanto principios ativos quanto nomes comerciais.\n",
+            "\n",
+            "**Problema descoberto:** O modelo marca todos os sub-tokens como `B-ChemicalDrugs`\n",
+            "(sem `I-ChemicalDrugs`). Por isso, `aggregation_strategy=\"simple\"` do pipeline\n",
+            "nao funciona corretamente. **Solucao:** agregacao manual por indice + prefixo `##`.\n",
+            "\n",
+            "### Rotulos do modelo\n",
+            "\n",
+            "- `B-ChemicalDrugs` — inicio de um nome de medicamento\n",
+            "- `I-ChemicalDrugs` — continuacao (nao usado por este modelo)\n",
+            "- `O` — fora de qualquer entidade\n",
+        ]
+    },
+
+    # 8 ── NER na pratica ─────────────────────────────────────────────────
+    {
+        "cell_type": "code",
+        "execution_count": None,
+        "metadata": {},
+        "outputs": [],
+        "source": [
+            "def agregar_entidades(entidades):\n",
+            "    \"\"\"Agrupa sub-tokens consecutivos em entidades completas.\n",
+            "\n",
+            "    O modelo clinicalnerpt-chemical marca todos os sub-tokens como\n",
+            "    B-ChemicalDrugs (sem I-ChemicalDrugs). Agrupamos por indice\n",
+            "    consecutivo e prefixo ##.\n",
+            "    \"\"\"\n",
+            "    if not entidades:\n",
+            "        return []\n",
+            "\n",
+            "    grupos = []\n",
+            "    grupo_atual = [entidades[0]]\n",
+            "\n",
+            "    for ent in entidades[1:]:\n",
+            "        anterior = grupo_atual[-1]\n",
+            "        if ent[\"index\"] == anterior[\"index\"] + 1 or ent[\"word\"].startswith(\"##\"):\n",
+            "            grupo_atual.append(ent)\n",
+            "        else:\n",
+            "            grupos.append(grupo_atual)\n",
+            "            grupo_atual = [ent]\n",
+            "    grupos.append(grupo_atual)\n",
+            "\n",
+            "    resultados = []\n",
+            "    for grupo in grupos:\n",
+            "        palavra = \"\".join(t[\"word\"].replace(\"##\", \"\") for t in grupo)\n",
+            "        confianca = sum(t[\"score\"] for t in grupo) / len(grupo)\n",
+            "        resultados.append({\n",
+            "            \"word\": palavra,\n",
+            "            \"score\": confianca,\n",
+            "            \"start\": grupo[0][\"start\"],\n",
+            "            \"end\": grupo[-1][\"end\"],\n",
+            "            \"entity_group\": grupo[0][\"entity\"],\n",
+            "        })\n",
+            "    return resultados\n",
+            "\n",
+            "registro.info(\"Carregando pipeline de reconhecimento de entidades...\")\n",
+            "\n",
+            "reconhecedor_entidades = pipeline(\n",
+            "    \"ner\",\n",
+            "    model=modelo_reconhecimento_entidades,\n",
+            "    aggregation_strategy=None,\n",
+            "    device=0 if dispositivo == \"cuda\" else -1,\n",
+            ")\n",
+            "registro.info(\"Modelo NER: %s\", modelo_reconhecimento_entidades)\n",
+            "\n",
+            "trecho_bula_amoxicilina = (\n",
+            "    \"A probenecida reduce a secrecao tubular renal da amoxicilina. \"\n",
+            "    \"No uso concomitante com amoxicilina, pode haver aumento dos niveis \"\n",
+            "    \"de amoxicilina no sangue. A administracao de alopurinol durante \"\n",
+            "    \"o tratamento com amoxicilina pode aumentar a probabilidade \"\n",
+            "    \"de reacoes alergicas. Existem casos raros de INR aumentada \"\n",
+            "    \"em pacientes mantidos com acenocumarol ou varfarina.\"\n",
+            ")\n",
+            "\n",
+            "registro.info(\"Executando NER (%d caracteres)...\", len(trecho_bula_amoxicilina))\n",
+            "\n",
+            "entidades_raw = reconhecedor_entidades(trecho_bula_amoxicilina)\n",
+            "entidades_reconhecidas = agregar_entidades(entidades_raw)\n",
+            "\n",
+            "print(f\"{'Entidade':<22} {'Confianca':>9}  {'Inicio':>6}  {'Fim':>6}\")\n",
+            "print(\"-\" * 52)\n",
+            "\n",
+            "for entidade in entidades_reconhecidas:\n",
+            "    print(f\"{entidade['word']:<22} {entidade['score']:>8.3f}  \"\n",
+            "          f\"{entidade['start']:>6}  {entidade['end']:>6}\")\n",
+            "\n",
+            "medicamentos_unicos = sorted(set(e[\"word\"] for e in entidades_reconhecidas))\n",
+            "print(f\"\\nMedicamentos unicos ({len(medicamentos_unicos)}):\")\n",
+            "for m in medicamentos_unicos:\n",
+            "    print(f\"  - {m}\")\n",
+            "\n",
+            "registro.info(\"NER: %d ocorrencias, %d unicos: %s\",\n",
+            "              len(entidades_reconhecidas), len(medicamentos_unicos),\n",
+            "              medicamentos_unicos)\n",
+        ]
+    },
+
+    # 9 ── Explicacao Tabela Comparativa ───────────────────────────────────
+    {
+        "cell_type": "markdown",
+        "metadata": {},
+        "source": [
+            "## 2.4 Tabela Comparativa de Arquiteturas\n",
+            "\n",
+            "| Modelo | Arquitetura | Parametros | Tarefa | Limite | Dominio |\n",
+            "|--------|-------------|------------|--------|--------|---------|\n",
+            "| `clinicalnerpt-chemical` | Encoder-only (BERT) | 110M | NER | 512 | Clinico PT |\n",
+            "| DistilBERT (sentiment) | Encoder-only (BERT) | 66M | Sentimento | 512 | Geral EN |\n",
+            "| `biobertpt-all` | Encoder-only (BERT) | 110M | Classificacao | 512 | Biomedico PT |\n",
+            "| GPT-2 | Decoder-only | 124M | Geracao | 1024 | Geral |\n",
+            "| BART | Encoder-Decoder | 406M | Sumarizacao | 1024 | Geral EN |\n",
+            "\n",
+            "### Encoder-only (BERT)\n",
+            "- Atencao bidirecional, treinamento com linguagem mascarada\n",
+            "- Ideal para: classificacao, NER, QA extrativa, embeddings\n",
+            "\n",
+            "### Decoder-only (GPT-2)\n",
+            "- Atencao causal (so ve tokens anteriores), proximo token\n",
+            "- Ideal para: geracao de texto, chatbots\n",
+            "\n",
+            "### Encoder-Decoder (BART)\n",
+            "- Codificador bidirecional + decodificador autoregressivo\n",
+            "- Ideal para: traducao, sumarizacao\n",
+            "\n",
+            "| Abordagem | Vantagem | Desvantagem |\n",
+            "|-----------|---------|-------------|\n",
+            "| `pipeline()` | Uma linha, ja trata tokenizacao | Menos controle |\n",
+            "| `AutoModel` manual | Controle total, GPU explicita | Mais linhas |\n",
+        ]
+    },
+
+    # 10 ── Conclusao ──────────────────────────────────────────────────────
+    {
+        "cell_type": "markdown",
+        "metadata": {},
+        "source": [
+            "## 2.5 Conclusao: Tarefas Importantes para o Detector\n",
+            "\n",
+            "| Tarefa | Aplicacao | Onde |\n",
+            "|--------|-----------|------|\n",
+            "| **NER** | Extrair medicamentos da consulta e das bulas | Caderno 05 |\n",
+            "| **Classificacao** | Classificar risco: 0 (SEM), 1 (LEVE), 2 (GRAVE) | Cadernos 02, 05 |\n",
+            "| **Embeddings** | Busca vetorial em bulas | Cadernos 03, 05 |\n",
+            "| **Geracao (LLM)** | Resposta final fundamentada | Cadernos 02, 05 |\n",
+        ]
+    },
+]
+
+
+NOTEBOOK = {
+    "cells": CELULAS,
+    "metadata": {
+        "kernelspec": {
+            "display_name": "Python 3",
+            "language": "python",
+            "name": "python3"
+        },
+        "language_info": {
+            "name": "python",
+            "version": "3.11.0"
+        }
+    },
+    "nbformat": 4,
+    "nbformat_minor": 4
+}
+
+OUTPUT = Path(__file__).parent / "c01_modelos_llm.ipynb"
+with open(OUTPUT, "w", encoding="utf-8") as f:
+    json.dump(NOTEBOOK, f, ensure_ascii=False, indent=1)
+
+print(f"Notebook: {OUTPUT}")
+print(f"Celulas: {len(CELULAS)} ({sum(1 for c in CELULAS if c['cell_type']=='code')} code)")
+
+# Validar
+print("\nValidando celulas de codigo...")
+erros = []
+for i, celula in enumerate(CELULAS):
+    if celula["cell_type"] == "code":
+        codigo = "".join(celula["source"])
+        try:
+            compile(codigo, f"celula_{i}", "exec")
+        except SyntaxError as e:
+            erros.append(f"Celula {i}: {e}")
+if erros:
+    for e in erros:
+        print(f"  ERRO: {e}")
+else:
+    print("  Todas as celulas de codigo - Python valido.")
