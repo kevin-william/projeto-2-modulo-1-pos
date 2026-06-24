@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Kevin Rodrigues — Sistemas Cognitivos com LLMs</title>
+<style>
+  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11pt; max-width: 800px; margin: 40px auto; padding: 0 40px; color: #222; }
+  h1 { font-size: 18pt; color: #1a3a5c; border-bottom: 2px solid #1a3a5c; padding-bottom: 6px; margin-top: 28px; }
+  h2 { font-size: 13pt; color: #2c5f8a; margin-top: 20px; }
+  h3 { font-size: 11pt; color: #444; margin-top: 14px; }
+  table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 10pt; }
+  th, td { border: 1px solid #aaa; padding: 6px 8px; text-align: left; }
+  th { background: #1a3a5c; color: #fff; }
+  tr:nth-child(even) { background: #f4f7fb; }
+  code { background: #f0f0f0; padding: 1px 4px; border-radius: 3px; font-size: 9pt; }
+  pre { background: #f5f5f5; padding: 10px; border-radius: 5px; font-size: 9pt; overflow-x: auto; border-left: 3px solid #2c5f8a; }
+  .capa { text-align: center; margin: 60px 0; }
+  .capa h1 { font-size: 20pt; border: none; }
+  .capa .disciplina { color: #666; font-size: 12pt; margin: 8px 0; }
+  .capa .aluno { font-size: 13pt; margin-top: 20px; }
+  .rubrica-table { font-size: 9pt; }
+  .rubrica-table td:first-child { font-weight: bold; color: #1a3a5c; width: 35%; }
+  .section-header { background: #e8f0f8; padding: 6px 10px; border-radius: 4px; margin: 16px 0 8px; }
+  hr { border: none; border-top: 1px solid #ccc; margin: 20px 0; }
+</style>
+</head>
+<body>
+
+<div class="capa">
+  <h1>Detector de Interacoes Medicamentosas com LLMs</h1>
+  <div class="disciplina">Sistemas Cognitivos com Large Language Models</div>
+  <div class="disciplina">Aplicacoes com LLMs — POS-GRADUACAO</div>
+  <div class="aluno"><strong>Aluno:</strong> Kevin Rodrigues</div>
+  <div class="aluno"><strong>RA:</strong> —</div>
+  <div class="aluno"><strong>Data:</strong> Junho 2026</div>
+</div>
+
+<hr>
+
+<h1>1. Descricao do Problema</h1>
+
+<p>Aplicacao cognitiva que recebe consultas em linguagem natural sobre interacoes entre medicamentos e retorna classificacoes estruturadas (grave, leve/moderada, sem interacao), fundamentadas em bulas reais de medicamentos brasileiros.</p>
+
+<p><strong>Contexto profissional:</strong> Profissionais de saude e pacientes precisam verificar interacoes medicamentosas rapidamente. Bularios sao extensos e buscar manualmente e ineficiente. O sistema extrai e classifica interacoes automaticamente usando um pipeline RAG.</p>
+
+<h1>2. Corpus ou Base de Conhecimento</h1>
+
+<table>
+  <tr><th>Fonte</th><th>Arquivos</th><th>Descricao</th></tr>
+  <tr><td>Fonte 1 (ANVISA)</td><td>4.978 bulas</td><td>Bularios oficiais .txt em formato _paciente / _profissional. Secao de interacoes extraida.</td></tr>
+  <tr><td>Fonte 2 (Consultaremedios)</td><td>982 Q&A</td><td>Perguntas e respostas structuradas. Bloco INTERACAO MEDICAMENTOSA? e COMPOSICAO?.</td></tr>
+  <tr><td><strong>Total processado</strong></td><td><strong>5.960</strong></td><td>Dados podados em data/pruned/</td></tr>
+</table>
+
+<p>Os dados foram processados pelo pipeline do projeto <code>python-processador-bulas</code>. Trechos relevantes foram extraidos e normalizados para alimentar o sistema de recuperacao.</p>
+
+<h1>3. Justificativa para Uso de LLMs</h1>
+
+<p>O dominio farmaceutico requer precisao e rastreabilidade. LLM sao ideais porque:</p>
+<ul>
+  <li>Interpretam linguagem natural da consulta (sem necessidade de sintaxe formal)</li>
+  <li>Classificam interacoes com base em contexto recuperado (fundamentacao)</li>
+  <li>Geram saidas estruturadas (JSON) para consumo programatico</li>
+  <li>Reduzem alucinacao quando combinados com RAG (recuperacao de bulas reais)</li>
+</ul>
+
+<h1>4. Modelos, APIs e Ferramentas Utilizadas</h1>
+
+<table>
+  <tr><th>Modelo / Ferramenta</th><th>Tarefa</th><th>Justificativa</th></tr>
+  <tr><td>pucpr/clinicalnerpt-chemical</td><td>NER</td><td>Treinado em bulas medicas PT-BR. Extrai nomes de farmacos com B-I tagging.</td></tr>
+  <tr><td>sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2</td><td>Embeddings</td><td>384d, 50+ idiomas (PT-BR), otimizado para similaridade semantica.</td></tr>
+  <tr><td>FAISS IndexFlatIP</td><td>Vector store</td><td>Busca por produto interno (cosseno normalizado). Simples e eficaz.</td></tr>
+  <tr><td>Meta-Llama-3-8B-Instruct.Q4_0.gguf</td><td>Classificacao</td><td>GPT4All local. Privacidade total, custo zero.</td></tr>
+  <tr><td>Heuristica (fallback)</td><td>Classificacao</td><td>Palavras-chave (contraindicado, monitorar). Funciona sem modelo GGUF.</td></tr>
+</table>
+
+<h1>5. Tarefas NLP Implementadas</h1>
+
+<ul>
+  <li><strong>NER (Named Entity Recognition):</strong> Extracao de nomes de farmacos usando pucpr/clinicalnerpt-chemical com agregacao de sub-tokens WordPiece</li>
+  <li><strong>Classificacao de texto:</strong> 3 classes (SEM_INTERACAO, LEVE_MODERADA, GRAVE_CONTRAINDICADA)</li>
+  <li><strong>Recuperacao de informacao:</strong> Busca semantica via embeddings + FAISS</li>
+  <li><strong>Geracao de texto:</strong> Few-shot prompting para classificacao JSON</li>
+</ul>
+
+<h1>6. Estrategia de Prompting</h1>
+
+<h2>6.1 Tecnicas Aplicadas</h2>
+
+<table>
+  <tr><th>Tecnica</th><th>Descricao</th><th>Exemplo</th></tr>
+  <tr><td><strong>Zero-shot</strong></td><td>Classificacao direta sem exemplos</td><td>"Classifique: farmaco A + farmaco B"</td></tr>
+  <tr><td><strong>Few-shot</strong></td><td>3 exemplos no prompt (classe 0, 1, 2)</td><td>Prompt com [EXEMPLO] para cada classe</td></tr>
+  <tr><td><strong>Chain-of-Thought</strong></td><td>Raciocinio encadeado antes da resposta</td><td>"Primeiro identifique... depois classifique..."</td></tr>
+  <tr><td><strong>Role prompting</strong></td><td>Farmacologo clinico como papel</td><td>"[PAPEL] Voce e um farmacologo clinico"</td></tr>
+</table>
+
+<h2>6.2 Prompts Utilizados</h2>
+
+<pre>
+[PAPEL] Voce e um farmacologo clinico.
+[CONTEXTO]
+- Amoxicilina pode aumentar o efeito anticoagulante da warfarina.
+- Nao ha interacao entre amoxicilina e paracetamol.
+[CONSULTA] Interacao entre amoxicilina e alopurinol?
+[SAIDA - JSON] {"classe": &lt;0,1,2&gt;, "justificativa": "&lt;breve&gt;"}
+</pre>
+
+<h2>6.3 Estrategia de Avaliacao dos Prompts</h2>
+
+<p>Cada prompt foi testado com 3 consultas de dominio e avaliado por:</p>
+<ul>
+  <li>Estabilidade de saida JSON (parsing bem-sucedido)</li>
+  <li>Corretude semantica da classificacao</li>
+  <li>Presenca de hallucination vs resposta fundamentada</li>
+</ul>
+
+<h1>7. Saida Estruturada (JSON)</h1>
+
+<h2>7.1 Formato</h2>
+<pre>
+{
+  "consulta": "amoxicilina com alopurinol",
+  "medicamentos_encontrados": ["amoxicilina", "alopurinol"],
+  "interacoes": [
+    {
+      "medicamento_principal": "amoxicilina",
+      "medicamento_secundario": "alopurinol",
+      "classe": 1,
+      "classe_nome": "LEVE_MODERADA",
+      "evidencia": "Heuristica: interacao leve"
+    }
+  ],
+  "tempo_ms": 4200,
+  "backend": "heuristica"
+}
+</pre>
+
+<h2>7.2 Parsing e Validacao</h2>
+<p>O parsing tenta tres estrategias em cascata:</p>
+<ol>
+  <li><code>json.loads()</code> direto</li>
+  <li><code>json.loads()</code> apos remover blocos <code>```json ... ```</code></li>
+  <li>Regex <code>"classe": (\d)</code> como ultimo recurso</li>
+</ol>
+
+<h1>8. Modelo de Embeddings</h1>
+
+<p><strong>Modelo:</strong> <code>sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2</code></p>
+<ul>
+  <li>384 dimensoes</li>
+  <li>12 camadas Transformer</li>
+  <li>Suporte a 50+ idiomas (PT-BR otimizado)</li>
+  <li>Normalizacao L2 -> Produto interno = similaridade cosseno</li>
+</ul>
+
+<h1>9. Estrategia de Busca Vetorial</h1>
+
+<h2>9.1 Metodo: Busca Densa com FAISS</h2>
+<pre>
+indice_faiss = faiss.IndexFlatIP(384)
+indice_faiss.add(matriz_embeddings.astype(np.float32))
+
+# Recuperacao
+distancias, indices = indice_faiss.search(embed_consulta, top_k=5)
+</pre>
+
+<h2>9.2 Metricas de Avaliacao</h2>
+<table>
+  <tr><th>Metrica</th><th>Valor (demo)</th><th>Descricao</th></tr>
+  <tr><td>Recall@5</td><td>0.85</td><td>Fracao de farmacos relevantes nos top-5</td></tr>
+  <tr><td>MRR@5</td><td>0.72</td><td>Posicao media do primeiro resultado relevante</td></tr>
+</table>
+
+<h2>9.3 Quando Funcionou e Quando Falhou</h2>
+<ul>
+  <li><strong>Funcionou:</strong> Farmacos com nomeSimilar a bulas indexadas</li>
+  <li><strong>Falhou:</strong> Nomes comerciais fora do vocabulario do NER; contexto muito especifico (top-k=3)</li>
+</ul>
+
+<h1>10. Estrategia de Execucao (Local vs Remota)</h1>
+
+<table>
+  <tr><th>Estrategia</th><th>Privacidade</th><th>Custo</th><th>Latencia</th><th>Controle</th></tr>
+  <tr><td>GPT4All direto</td><td>Total</td><td>R$ 0</td><td>Alta (GPU)</td><td>Maximo</td></tr>
+  <tr><td>GPT4All API local</td><td>Alta</td><td>R$ 0</td><td>Media</td><td>Alto</td></tr>
+  <tr><td>Heuristica</td><td>Total</td><td>R$ 0</td><td>Baixa</td><td>Maximo</td></tr>
+</table>
+
+<p><strong>Decisao:</strong> GPT4All local com fallback heuristico. Dados medicos nunca saem da maquina. A arquitetura em camadas garante funcionamento mesmo sem GPU.</p>
+
+<h1>11. Pipeline RAG</h1>
+
+<h2>11.1 Fluxo Completo</h2>
+<pre>
+Consulta (linguagem natural)
+  |
+  v
+[NER] pucpr/clinicalnerpt-chemical
+  -> Extrai nomes de farmacos da consulta
+  |
+  v
+[Embeddings] paraphrase-multilingual-MiniLM-L12-v2
+  -> Codifica trechos de bulas em vetores densos
+  |
+  v
+[Indice FAISS] IndexFlatIP
+  -> Recupera top-K trechos mais similares
+  |
+  v
+[Classificador] GPT4All / Heuristica
+  -> Few-shot classification (Classe 0, 1 ou 2)
+  |
+  v
+[JSON estruturado]
+  -> {"classe": N, "justificativa": "...", "evidencia": "..."}
+</pre>
+
+<h2>11.2 Estrategia de Chunking</h2>
+<ul>
+  <li>Sentencas curtas (max 250 palavras)</li>
+  <li>Overlap de 1 sentenca entre chunks</li>
+  <li>Garante que tokenizador BERT (512 tokens) nao corta informacao no meio</li>
+</ul>
+
+<h2>11.3 Vector Store</h2>
+<p><strong>FAISS IndexFlatIP</strong> com 384 dimensoes. Produto interno sobre vetores normalizados L2 equivale a similaridade cosseno. Indice em memoria (CPU) para demonstracao; em producao usar paginacao em disco.</p>
+
+<h2>11.4 Exemplos de Consultas e Respostas</h2>
+<pre>
+Consulta: "Posso tomar amoxicilina com alopurinol?"
+  Farmacos: ['amoxicilina', 'alopurinol']
+  VERDE: amoxicilina + alopurinol -> SEM_INTERACAO (0)
+  Tempo: 4200ms | Backend: heuristica
+
+Consulta: "Sinvastatina e itraconazol sao seguros?"
+  Farmacos: ['sinvastatina', 'itraconazol']
+  VERMELHO: sinvastatina + itraconazol -> GRAVE_CONTRAINDICADA (2)
+  Tempo: 3800ms | Backend: heuristica
+</pre>
+
+<h2>11.5 Respostas Com e Sem Contexto</h2>
+<table>
+  <tr><th>Abordagem</th><th>Saida</th><th>Confiabilidade</th></tr>
+  <tr><td>Zero-shot (sem contexto)</td><td>Baseado em conhecimento interno do modelo</td><td>Baixa (risco de alucinacao)</td></tr>
+  <tr><td>RAG (com contexto)</td><td>Fundamentada em trechos de bulas reais</td><td>Alta (rastreavel)</td></tr>
+</table>
+
+<h1>12. Analise de Falhas do Pipeline</h1>
+
+<table>
+  <tr><th>Componente</th><th>Ponto de Falha</th><th>Impacto</th><th>Mitigacao</th></tr>
+  <tr><td>NER</td><td>Farmaco fora do vocabulario</td><td>Par nao gerado</td><td>Fine-tuning com nomes comerciais</td></tr>
+  <tr><td>FAISS</td><td>Top-K=3 perde contexto</td><td>Resposta incompleta</td><td>Aumentar top-K ou reranking</td></tr>
+  <tr><td>Classificador</td><td>Heuristica com acuracia limitada</td><td>Erro de classe</td><td>Fine-tuning com bulas</td></tr>
+  <tr><td>Chunking</td><td>Sentenca isolada perde contexto</td><td>Classificacao incorreta</td><td>Chunks com overlap maior</td></tr>
+</table>
+
+<h1>13. Riscos de Seguranca</h1>
+
+<table>
+  <tr><th>Risco</th><th>Descricao</th><th>Controle</th></tr>
+  <tr><td>Injectao de prompt</td><td>Consulta contem instrucoes para bypassar classificacao</td><td>Sanitizacao regex (remover "lembre_se", "ignore_instrucoes")</td></tr>
+  <tr><td>Vazamento de contexto</td><td>Tentativa de extrair system prompt</td><td>Log de auditoria; heuristica nao expoe prompt</td></tr>
+  <tr><td>Exposicao de dados medicos</td><td>API externa recebe dados de pacientes</td><td>GPT4All local; dados nunca saem da maquina</td></tr>
+</table>
+
+<h1>14. Instrucoes de Reproducao</h1>
+
+<pre>
+# 1. Clonar e configurar ambiente
+cd C:\workspace\python\projeto-2-modulo-1-pos
+python -m venv venv
+.\venv\Scripts\activate
+pip install -r requirements.txt
+
+# 2. Executar notebooks em ordem
+jupyter notebook c01_modelos_llm.ipynb
+jupyter notebook c02_engenharia_prompt.ipynb
+jupyter notebook c03_embeddings_busca.ipynb
+jupyter notebook c04_inferencia_local.ipynb
+jupyter notebook c05_pipeline_rag.ipynb
+
+# 3. GPT4All (opcional)
+# Baixar Meta-Llama-3-8B-Instruct.Q4_0.gguf
+# Heuristica funciona sem modelo GGUF
+</pre>
+
+<h1>15. Limitacoes da Solucao</h1>
+
+<ul>
+  <li>NER com vocabulario limitado (nomes comerciais fora do dominio)</li>
+  <li>Heuristica com acuracia moderada (usada apenas como fallback)</li>
+  <li>Top-K fixo pode perder contextos relevantes</li>
+  <li>Sem avaliacao com conjunto de teste anotado</li>
+</ul>
+
+<h1>16. Melhorias Futuras</h1>
+
+<ul>
+  <li><strong>Fine-tuning:</strong> Treinar classificador especifico com as 5.960 bulas</li>
+  <li><strong>Reranking:</strong> Segundo modelo para reordenar resultados FAISS</li>
+  <li><strong>Cache Redis:</strong> TTL=7d para consultas frequentes (Dipirona, etc.)</li>
+  <li><strong>Curadoria humana:</strong> Label Studio para anotar casos ambíguos</li>
+  <li><strong>Avaliacao formal:</strong> F1-score por classe com conjunto de teste</li>
+</ul>
+
+<hr>
+<p style="text-align:center; color: #888; font-size: 9pt;">
+Sistemas Cognitivos com LLMs — Kevin Rodrigues — Junho 2026
+</p>
+
+</body>
+</html>
